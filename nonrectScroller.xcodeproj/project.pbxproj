@@ -17,6 +17,7 @@
 		315F500116522972008DA6B6 /* Default@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 315F500016522972008DA6B6 /* Default@2x.png */; };
 		315F500316522972008DA6B6 /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 315F500216522972008DA6B6 /* Default-568h@2x.png */; };
 		315F500616522972008DA6B6 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 315F500516522972008DA6B6 /* ViewController.m */; };
+		31E8B5D016536C0D00DD7143 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 31E8B5CF16536C0D00DD7143 /* QuartzCore.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +36,7 @@
 		315F500216522972008DA6B6 /* Default-568h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default-568h@2x.png"; sourceTree = "<group>"; };
 		315F500416522972008DA6B6 /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
 		315F500516522972008DA6B6 /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
+		31E8B5CF16536C0D00DD7143 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -42,6 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				31E8B5D016536C0D00DD7143 /* QuartzCore.framework in Frameworks */,
 				315F4FED16522972008DA6B6 /* UIKit.framework in Frameworks */,
 				315F4FEF16522972008DA6B6 /* Foundation.framework in Frameworks */,
 				315F4FF116522972008DA6B6 /* CoreGraphics.framework in Frameworks */,
@@ -71,6 +74,7 @@
 		315F4FEB16522972008DA6B6 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				31E8B5CF16536C0D00DD7143 /* QuartzCore.framework */,
 				315F4FEC16522972008DA6B6 /* UIKit.framework */,
 				315F4FEE16522972008DA6B6 /* Foundation.framework */,
 				315F4FF016522972008DA6B6 /* CoreGraphics.framework */,

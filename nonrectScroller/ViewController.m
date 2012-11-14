@@ -7,8 +7,9 @@
 //
 
 #import "ViewController.h"
+#import <QuartzCore/QuartzCore.h>
 
-static const CGSize kPageSize = { 100, 100 };
+static const CGSize kPageSize = { 200, 300 };
 typedef struct {
     int x;
     int y;
@@ -21,8 +22,7 @@ typedef struct {
 @implementation ViewController {
     NSArray *map_;
     MapPosition mapPosition_;
-    UIScrollView *verticalScroller_;
-    UIScrollView *horizontalScroller_;
+    UIScrollView *scrollView_;
 }
 
 - (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil {
@@ -45,45 +45,32 @@ typedef struct {
 
 - (void)loadView {
     UIView *contentView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, [map_[0] count] * kPageSize.width, map_.count * kPageSize.height)];
-    contentView.backgroundColor = [UIColor redColor];
+    contentView.backgroundColor = [UIColor colorWithHue:0.1 saturation:0.1 brightness:0.9 alpha:1];
     [self addPageViewsToContentView:contentView];
 
-    verticalScroller_ = [self newScrollView];
-    verticalScroller_.frame = CGRectMake(0, 0, contentView.frame.size.width, kPageSize.height);
-    verticalScroller_.contentSize = contentView.frame.size;
-    [verticalScroller_ addSubview:contentView];
-    verticalScroller_.contentOffset = [self verticalContentOffsetForCurrentMapPosition];
+    scrollView_ = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, kPageSize.width, kPageSize.height)];
+    scrollView_.delegate= self;
+    scrollView_.bounces = NO;
+    scrollView_.contentSize = contentView.frame.size;
+    [scrollView_ addSubview:contentView];
+    scrollView_.contentOffset = [self contentOffsetForCurrentMapPosition];
+    scrollView_.autoresizingMask = (UIViewAutoresizingFlexibleLeftMargin
+                                    | UIViewAutoresizingFlexibleRightMargin
+                                    | UIViewAutoresizingFlexibleTopMargin
+                                    | UIViewAutoresizingFlexibleBottomMargin);
 
-    horizontalScroller_ = [self newScrollView];
-    horizontalScroller_.frame = CGRectMake(0, 0, kPageSize.width, kPageSize.height);
-    horizontalScroller_.contentSize = verticalScroller_.frame.size;
-    [horizontalScroller_ addSubview:verticalScroller_];
-    horizontalScroller_.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin
-        | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
-    horizontalScroller_.contentOffset = [self horizontalContentOffsetForCurrentMapPosition];
-
-    UIView *myView = [[UIView alloc] initWithFrame:horizontalScroller_.frame];
-    [myView addSubview:horizontalScroller_];
+    UIView *myView = [[UIView alloc] initWithFrame:scrollView_.frame];
+    [myView addSubview:scrollView_];
     myView.backgroundColor = [UIColor colorWithWhite:0.95 alpha:1];
     self.view = myView;
 }
 
-- (CGPoint)horizontalContentOffsetForCurrentMapPosition {
-    return CGPointMake(mapPosition_.x * kPageSize.width, 0);
+- (CGPoint)contentOffsetForCurrentMapPosition {
+    return [self contentOffsetForMapPosition:mapPosition_];
 }
 
-- (CGPoint)verticalContentOffsetForCurrentMapPosition {
-    return CGPointMake(0, mapPosition_.y * kPageSize.height);
-}
-
-- (UIScrollView *)newScrollView {
-    UIScrollView *scrollView = [[UIScrollView alloc] init];
-    scrollView.pagingEnabled = YES;
-    scrollView.showsHorizontalScrollIndicator = NO;
-    scrollView.showsVerticalScrollIndicator = NO;
-    scrollView.bounces = NO;
-    scrollView.delegate = self;
-    return scrollView;
+- (CGPoint)contentOffsetForMapPosition:(MapPosition)position {
+    return CGPointMake(position.x * kPageSize.width, position.y * kPageSize.height);
 }
 
 - (void)addPageViewsToContentView:(UIView *)contentView {
@@ -99,98 +86,102 @@ typedef struct {
 }
 
 - (void)addPageViewForPage:(NSString *)page x:(int)x y:(int)y toContentView:(UIView *)contentView {
-    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(x * kPageSize.width, y * kPageSize.height, kPageSize.width, kPageSize.height)];
+    UILabel *label = [[UILabel alloc] initWithFrame:CGRectInset(CGRectMake(x * kPageSize.width, y * kPageSize.height, kPageSize.width, kPageSize.height), 10, 10)];
     label.text = page;
     label.textAlignment = NSTextAlignmentCenter;
+    label.layer.shadowOffset = CGSizeMake(0, 2);
+    label.layer.shadowRadius = 2;
+    label.layer.shadowOpacity = 0.3;
+    label.layer.shadowPath = [UIBezierPath bezierPathWithRect:label.bounds].CGPath;
+    label.clipsToBounds = NO;
     [contentView addSubview:label];
 }
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView {
-    [self constrainHorizontalScroller];
-    [self constrainVerticalScroller];
+    CGPoint contentOffset = scrollView_.contentOffset;
+    CGPoint constrainedContentOffset = [self contentOffsetByConstrainingMovementToOneDimension:contentOffset];
+    constrainedContentOffset = [self contentOffsetByConstrainingToAccessiblePoint:constrainedContentOffset];
+    if (!CGPointEqualToPoint(contentOffset, constrainedContentOffset)) {
+        scrollView_.contentOffset = constrainedContentOffset;
+    }
+    mapPosition_ = [self mapPositionForContentOffset:constrainedContentOffset];
+}
+
+- (MapPosition)mapPositionForContentOffset:(CGPoint)contentOffset {
+    return (MapPosition){ roundf(contentOffset.x / kPageSize.width),
+        roundf(contentOffset.y / kPageSize.height) };
+}
+
+- (CGPoint)contentOffsetByConstrainingMovementToOneDimension:(CGPoint)contentOffset {
+    CGPoint baseContentOffset = [self contentOffsetForCurrentMapPosition];
+    CGFloat dx = contentOffset.x - baseContentOffset.x;
+    CGFloat dy = contentOffset.y - baseContentOffset.y;
+    if (fabsf(dx) < fabsf(dy)) {
+        contentOffset.x = baseContentOffset.x;
+    } else {
+        contentOffset.y = baseContentOffset.y;
+    }
+    return contentOffset;
+}
+
+- (CGPoint)contentOffsetByConstrainingToAccessiblePoint:(CGPoint)contentOffset {
+    return [self isAccessiblePoint:contentOffset] ? contentOffset : [self contentOffsetForCurrentMapPosition];
+}
+
+- (BOOL)isAccessiblePoint:(CGPoint)point {
+    CGFloat x = point.x / kPageSize.width;
+    CGFloat y = point.y / kPageSize.height;
+    return [self isAccessibleMapPosition:(MapPosition){ floorf(x), floorf(y) }]
+        && [self isAccessibleMapPosition:(MapPosition){ ceilf(x), ceilf(y) }];
+}
+
+- (BOOL)isAccessibleMapPosition:(MapPosition)p {
+    if (p.y < 0 || p.y >= map_.count)
+        return NO;
+    NSArray *mapRow = map_[p.y];
+    if (p.x < 0 || p.x >= mapRow.count)
+        return NO;
+    return ![mapRow[p.x] isKindOfClass:[NSNull class]];
+}
+
+static int sign(CGFloat value) {
+    return value > 0 ? 1 : -1;
+}
+
+static int directionForVelocity(CGFloat velocity) {
+    static const CGFloat kVelocityThreshold = 0.1;
+    return fabsf(velocity) < kVelocityThreshold ? 0 : sign(velocity);
+}
+
+- (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoint)velocity targetContentOffset:(inout CGPoint *)targetContentOffset {
+    if (fabsf(velocity.x) > fabsf(velocity.y)) {
+        *targetContentOffset = [self contentOffsetForPageInHorizontalDirection:directionForVelocity(velocity.x)];
+    } else {
+        *targetContentOffset = [self contentOffsetForPageInVerticalDirection:directionForVelocity(velocity.y)];
+    }
+}
+
+- (CGPoint)contentOffsetForPageInHorizontalDirection:(int)direction {
+    MapPosition newPosition = (MapPosition){ mapPosition_.x + direction, mapPosition_.y };
+    return [self isAccessibleMapPosition:newPosition] ? [self contentOffsetForMapPosition:newPosition] : [self contentOffsetForCurrentMapPosition];
+}
+
+- (CGPoint)contentOffsetForPageInVerticalDirection:(int)direction {
+    MapPosition newPosition = (MapPosition){ mapPosition_.x, mapPosition_.y + direction };
+    return [self isAccessibleMapPosition:newPosition] ? [self contentOffsetForMapPosition:newPosition] : [self contentOffsetForCurrentMapPosition];
 }
 
 - (void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate {
     if (!decelerate) {
-        [self updateMapPositionFromScrollViewContentOffsets];
+        [scrollView_ setContentOffset:[self contentOffsetForCurrentMapPosition] animated:YES];
     }
 }
 
 - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
-    [self updateMapPositionFromScrollViewContentOffsets];
-}
-
-- (void)updateMapPositionFromScrollViewContentOffsets {
-    mapPosition_ = (MapPosition){ roundf(horizontalScroller_.contentOffset.x / kPageSize.width),
-        roundf(verticalScroller_.contentOffset.y / kPageSize.height) };
-    NSLog(@"mapPosition updated to %d,%d", mapPosition_.x, mapPosition_.y);
-}
-
-static CGFloat clampMagnitude(CGFloat value, CGFloat maxMagnitude) {
-    return (value < -maxMagnitude ? -maxMagnitude
-            : value > maxMagnitude ? maxMagnitude
-            : value);
-}
-
-static int sign(CGFloat value) {
-    return value < 0 ? -1 : 1;
-}
-
-- (void)constrainHorizontalScroller {
-    CGPoint baseContentOffset = [self horizontalContentOffsetForCurrentMapPosition];
-    CGFloat xDeltaUnclamped = horizontalScroller_.contentOffset.x - baseContentOffset.x;
-    if (xDeltaUnclamped == 0)
-        return;
-    
-    BOOL shouldSetContentOffset = NO;
-
-    CGFloat xDelta = clampMagnitude(xDeltaUnclamped, kPageSize.width);
-    if (xDelta != xDeltaUnclamped) {
-        shouldSetContentOffset = YES;
+    CGPoint goodContentOffset = [self contentOffsetForCurrentMapPosition];
+    if (!CGPointEqualToPoint(scrollView_.contentOffset, goodContentOffset)) {
+        [scrollView_ setContentOffset:goodContentOffset animated:YES];
     }
-
-    if (![self allowGoingToMapX:mapPosition_.x + sign(xDelta) y:mapPosition_.y]) {
-        xDelta = 0;
-        shouldSetContentOffset = YES;
-    }
-
-    if (shouldSetContentOffset) {
-        baseContentOffset.x += xDelta;
-        horizontalScroller_.contentOffset = baseContentOffset;
-    }
-}
-
-- (void)constrainVerticalScroller {
-    CGPoint baseContentOffset = [self verticalContentOffsetForCurrentMapPosition];
-    CGFloat yDeltaUnclamped = verticalScroller_.contentOffset.y - baseContentOffset.y;
-    if (yDeltaUnclamped == 0)
-        return;
-
-    BOOL shouldSetContentOffset = NO;
-
-    CGFloat yDelta = clampMagnitude(yDeltaUnclamped, kPageSize.height);
-    if (yDelta != yDeltaUnclamped) {
-        shouldSetContentOffset = YES;
-    }
-
-    if (![self allowGoingToMapX:mapPosition_.x y:mapPosition_.y + sign(yDelta)]) {
-        yDelta = 0;
-        shouldSetContentOffset = YES;
-    }
-
-    if (shouldSetContentOffset) {
-        baseContentOffset.y += yDelta;
-        verticalScroller_.contentOffset = baseContentOffset;
-    }
-}
-
-- (BOOL)allowGoingToMapX:(int)x y:(int)y {
-    if (y < 0 || y > map_.count)
-        return NO;
-    NSArray *mapRow = map_[y];
-    if (x < 0 || x > mapRow.count)
-        return NO;
-    return ![mapRow[x] isKindOfClass:[NSNull class]];
 }
 
 @end
